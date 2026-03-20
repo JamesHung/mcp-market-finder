@@ -1,0 +1,241 @@
+openapi: 3.1.0
+info:
+  title: MCP Skill Link Resolver API
+  version: 0.1.0
+  description: >
+    提供單一 URL 解析與成功歷史列表查詢的最小 REST API。
+servers:
+  - url: /
+paths:
+  /api/lookups/resolve:
+    post:
+      summary: 解析 MCP Market skill 輸入
+      description: >
+        接受 skill 詳情頁 URL 或 download API URL，解析 download 位置並轉成
+        GitHub 真實連結。所有查詢都會被保存。
+      operationId: resolveLookup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveLookupRequest'
+      responses:
+        '200':
+          description: 成功解析
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResolveLookupSuccessResponse'
+        '422':
+          description: 輸入格式不合法或來源不受支援
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResolveLookupFailureResponse'
+        '502':
+          description: 上游頁面可存取但無法成功取得可用來源位置
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResolveLookupFailureResponse'
+  /api/history:
+    get:
+      summary: 取得成功歷史列表
+      description: >
+        回傳只包含成功解析紀錄的歷史列表，支援文字搜尋與固定每頁 10 筆分頁。
+      operationId: listHistory
+      parameters:
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: 1-based 頁碼
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+            maxLength: 200
+          description: 大小寫不敏感搜尋字詞
+      responses:
+        '200':
+          description: 成功回傳歷史列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryListResponse'
+components:
+  schemas:
+    ResolveLookupRequest:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          description: mcpmarket.com skill 詳情頁 URL 或 download API URL
+      additionalProperties: false
+    InputType:
+      type: string
+      enum:
+        - skill_page
+        - download_api
+    LookupStatus:
+      type: string
+      enum:
+        - success
+        - invalid_input
+        - unsupported_input
+        - missing_source
+        - upstream_error
+        - non_github_source
+    LookupRecordBase:
+      type: object
+      required:
+        - id
+        - inputUrl
+        - inputType
+        - status
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+        inputUrl:
+          type: string
+          format: uri
+        inputType:
+          $ref: '#/components/schemas/InputType'
+        skillSlug:
+          type:
+            - string
+            - 'null'
+        downloadUrl:
+          type:
+            - string
+            - 'null'
+          format: uri
+        githubUrl:
+          type:
+            - string
+            - 'null'
+          format: uri
+        status:
+          $ref: '#/components/schemas/LookupStatus'
+        errorCode:
+          type:
+            - string
+            - 'null'
+        errorMessage:
+          type:
+            - string
+            - 'null'
+        createdAt:
+          type: string
+          format: date-time
+    ResolveLookupSuccessResponse:
+      type: object
+      required:
+        - record
+      properties:
+        record:
+          allOf:
+            - $ref: '#/components/schemas/LookupRecordBase'
+            - type: object
+              required:
+                - downloadUrl
+                - githubUrl
+              properties:
+                status:
+                  type: string
+                  const: success
+      additionalProperties: false
+    ResolveLookupFailureResponse:
+      type: object
+      required:
+        - record
+        - error
+      properties:
+        record:
+          $ref: '#/components/schemas/LookupRecordBase'
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+          additionalProperties: false
+      additionalProperties: false
+    HistoryRecord:
+      type: object
+      required:
+        - id
+        - inputUrl
+        - inputType
+        - downloadUrl
+        - githubUrl
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+        inputUrl:
+          type: string
+          format: uri
+        inputType:
+          $ref: '#/components/schemas/InputType'
+        skillSlug:
+          type:
+            - string
+            - 'null'
+        downloadUrl:
+          type: string
+          format: uri
+        githubUrl:
+          type: string
+          format: uri
+        createdAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    HistoryListResponse:
+      type: object
+      required:
+        - items
+        - page
+        - pageSize
+        - totalItems
+        - totalPages
+        - hasNextPage
+        - hasPreviousPage
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryRecord'
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          const: 10
+        totalItems:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+        hasNextPage:
+          type: boolean
+        hasPreviousPage:
+          type: boolean
+      additionalProperties: false

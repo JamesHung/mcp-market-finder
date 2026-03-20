@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "lib": ["ES2022"],
+    "jsx": "react-jsx",
+    "types": ["node"],
+    "outDir": "dist/server",
+    "rootDir": "."
+  },
+  "include": [
+    "src/server/**/*",
+    "src/shared/**/*",
+    "scripts/**/*"
+  ]
+}
